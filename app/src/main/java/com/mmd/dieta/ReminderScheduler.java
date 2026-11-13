@@ -34,7 +34,7 @@ public final class ReminderScheduler {
                 boolean water=slot>=WATER_START;
                 if(slot>=4 && slot<WATER_START)continue;
                 if(!water && PlanData.mealDone(c,day,slot))continue;
-                if(water && PlanData.water(c,day)>=PlanData.goal(c))continue;
+                if(water && (PlanData.waterDone(c,day,slot-WATER_START) || PlanData.water(c,day)>=PlanData.goal(c)))continue;
                 String time=water?PlanData.WATER_TIMES[slot-WATER_START]:PlanData.TIMES[slot];
                 LocalDateTime dateTime=LocalDateTime.of(PlanData.date(c,day),LocalTime.parse(time));
                 at(c,day,slot,false,dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
@@ -46,6 +46,12 @@ public final class ReminderScheduler {
         LocalTime cutoff=LocalTime.of(22,0);
         if(LocalTime.now().isAfter(cutoff.minusMinutes(25)))return;
         at(c,day,meal,true,System.currentTimeMillis()+25*60*1000L);
+    }
+    public static void cancelWater(Context c,int day,int slot) {
+        AlarmManager a=alarms(c);
+        if(a!=null)a.cancel(intent(c,day,WATER_START+slot,false));
+        android.app.NotificationManager n=(android.app.NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+        if(n!=null)n.cancel(20000+day*100+WATER_START+slot);
     }
     public static void cancelMeal(Context c,int day,int meal) {
         AlarmManager a=alarms(c);
