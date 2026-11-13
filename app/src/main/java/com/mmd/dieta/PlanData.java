@@ -11,7 +11,7 @@ public final class PlanData {
     public static final int DAYS = 15;
     public static final String[] NAMES = {"Café da manhã", "Almoço", "Lanche", "Jantar"};
     public static final String[] TIMES = {"07:00", "12:00", "16:00", "19:00"};
-    public static final String[] WATER_TIMES = {"06:30","07:50","09:10","10:30","11:50","13:10","14:30","15:50","17:10","18:30","19:50"};
+    public static final String[] WATER_TIMES = {"07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:30","18:00"};
     // Porções ajustadas para aproximadamente 2.000 kcal/dia. Valores são estimativas.
     public static final String[][] FOOD = {
         {"3 ovos, pão de leite (100 g), maçã (130 g)",
@@ -47,6 +47,19 @@ public final class PlanData {
     }
     public static void setMeal(Context c,int day,int meal,boolean done) {
         prefs(c).edit().putBoolean(key(c,day,"meal"+meal),done).apply();
+    }
+    public static int waterSlotAmount(Context c,int slot) {
+        int goal=goal(c);
+        int base=(goal/11/50)*50;
+        return slot==10?goal-base*10:base;
+    }
+    public static boolean waterDone(Context c,int day,int slot) {
+        return prefs(c).getBoolean(key(c,day,"water_slot_"+slot),false);
+    }
+    public static void setWaterDone(Context c,int day,int slot,boolean done) {
+        if(waterDone(c,day,slot)==done)return;
+        prefs(c).edit().putBoolean(key(c,day,"water_slot_"+slot),done).apply();
+        addWater(c,day,done?waterSlotAmount(c,slot):-waterSlotAmount(c,slot));
     }
     public static int water(Context c,int day) { return prefs(c).getInt(key(c,day,"water"),0); }
     public static void addWater(Context c,int day,int amount) {
