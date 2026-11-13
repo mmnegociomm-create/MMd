@@ -154,12 +154,33 @@ public class MainActivity extends Activity {
     }
     private void hydration() {
         int amount=PlanData.water(this,chosen),goal=PlanData.goal(this);
-        LinearLayout c=card("HIDRATAÇÃO  💧");
+        LinearLayout c=card("HIDRATAÇÃO  💧  •  ATÉ 18H");
         c.addView(text(amount+" / "+goal+" ml",26,WHITE,true));
-        c.addView(text("Meta ajustável conforme seu peso • referência 30 ml/kg",12,MUTED,false));
+        c.addView(text("Faltam "+Math.max(0,goal-amount)+" ml  •  "+Math.round(amount*100f/goal)+"% da meta",13,amount>=goal?SUCCESS:MUTED,true));
         progress(c,amount,goal);
+        c.addView(text("CONFIRME CADA COPO DEPOIS DE BEBER",12,BLUE,true),lp(-1,-2,15));
+        c.addView(text("11 horários entre 07h e 18h. Toque para marcar ou desfazer. A quantidade é recalculada quando seu peso muda.",12,MUTED,false),lp(-1,-2,5));
+        for(int i=0;i<PlanData.WATER_TIMES.length;i++) {
+            final int slot=i;
+            boolean done=PlanData.waterDone(this,chosen,i);
+            LinearLayout line=new LinearLayout(this);
+            line.setGravity(Gravity.CENTER_VERTICAL);
+            c.addView(line,lp(-1,49,7));
+            TextView label=text(PlanData.WATER_TIMES[i]+"   •   "+PlanData.waterSlotAmount(this,i)+" ml",14,done?SUCCESS:WHITE,true);
+            line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+            Button confirm=button(done?"✓ BEBI":"CONFIRMAR",done);
+            line.addView(confirm,new LinearLayout.LayoutParams(dp(125),dp(42)));
+            confirm.setOnClickListener(v->{
+                boolean next=!PlanData.waterDone(this,chosen,slot);
+                PlanData.setWaterDone(this,chosen,slot,next);
+                if(next)ReminderScheduler.cancelWater(this,chosen,slot);
+                else ReminderScheduler.setup(this);
+                render();
+            });
+        }
+        c.addView(text("REGISTRO EXTRA (fora dos copos programados)",12,BLUE,true),lp(-1,-2,16));
         LinearLayout buttons=new LinearLayout(this);
-        c.addView(buttons,lp(-1,44,14));
+        c.addView(buttons,lp(-1,44,8));
         int[] values={200,300,-200};
         String[] labels={"+200 ml","+300 ml","Corrigir −200"};
         for(int i=0;i<3;i++){
@@ -169,23 +190,7 @@ public class MainActivity extends Activity {
             buttons.addView(b,p);
             b.setOnClickListener(v->{PlanData.addWater(this,chosen,ml);render();});
         }
-        gap(c,13);
-        c.addView(text("HORÁRIOS SUGERIDOS",12,BLUE,true));
-        int portion=Math.round(goal/110f)*10;
-        c.addView(text("Aprox. "+portion+" ml por lembrete. Não é necessário beber tudo de uma vez.",12,MUTED,false));
-        for(int k=0;k<PlanData.WATER_TIMES.length;k+=3) {
-            LinearLayout line=new LinearLayout(this);c.addView(line,lp(-1,35,7));
-            for(int j=k;j<Math.min(k+3,PlanData.WATER_TIMES.length);j++){
-                String t=PlanData.WATER_TIMES[j];
-                TextView chip=text("◉ "+t,12,BLUE,true);
-                chip.setGravity(Gravity.CENTER);
-                chip.setBackground(drawable(0xff102b44,LINE,9));
-                LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
-                if(j>k)p.leftMargin=dp(7);
-                line.addView(chip,p);
-            }
-        }
-        c.addView(text("Os avisos de água param quando a meta do dia é atingida.",11,MUTED,false),lp(-1,-2,12));
+        c.addView(text(amount>=goal?"✓ Meta diária atingida!":"A meta é uma referência, não uma obrigação de beber rápido. Não force água em excesso.",12,amount>=goal?SUCCESS:MUTED,false),lp(-1,-2,12));
     }
     private void weightCard() {
         LinearLayout c=card("RECALCULAR PELO PESO");
@@ -206,6 +211,6 @@ public class MainActivity extends Activity {
                 Toast.makeText(this,"Meta recalculada: "+PlanData.goal(this)+" ml/dia",Toast.LENGTH_LONG).show();
             } catch(Exception e){Toast.makeText(this,"Informe um peso válido entre 30 e 350 kg.",Toast.LENGTH_LONG).show();}
         });
-        c.addView(text("Lembretes: refeições às 07h, 12h, 16h, 19h; água das 06h30 às 19h50. Permita notificações e, se necessário, desative a otimização de bateria para este app.",12,MUTED,false),lp(-1,-2,13));
+        c.addView(text("Lembretes: refeições às 07h, 12h, 16h, 19h; água das 07h às 18h. Permita notificações e, se necessário, desative a otimização de bateria para este app.",12,MUTED,false),lp(-1,-2,13));
     }
 }
