@@ -30,7 +30,7 @@ public final class ReminderScheduler {
     public static void setup(Context c) {
         PlanData.start(c);
         for(int day=1;day<=PlanData.DAYS;day++) {
-            for(int slot=0;slot<4+PlanData.WATER_TIMES.length;slot++) {
+            for(int slot=0;slot<WATER_START+PlanData.WATER_TIMES.length;slot++) {
                 boolean water=slot>=WATER_START;
                 if(slot>=4 && slot<WATER_START)continue;
                 if(!water && PlanData.mealDone(c,day,slot))continue;
