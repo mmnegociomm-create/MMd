@@ -27,7 +27,7 @@ final class FitnessUI {
     int lastAlert=-1;
     String mode="";
     TextView timer,stage,next,detail; Button play,advance;
-    final Runnable tick=new Runnable(){public void run(){refresh();if(running)handler.postDelayed(this,100);}};
+    final Runnable tick=new Runnable(){public void run(){refresh();handler.removeCallbacks(this);if(running)handler.postDelayed(this,100);}};
     FitnessUI(MainActivity a){this.a=a;prefs=PlanData.prefs(a);week=prefs.getInt("run_week",1);day=prefs.getInt("run_day",0);phase=prefs.getInt("gym_phase",0);group=prefs.getInt("gym_group",0);}
     int dp(int n){return (int)(n*a.getResources().getDisplayMetrics().density+.5f);}
     TextView txt(String s,int size,boolean bold){TextView t=new TextView(a);t.setText(s);t.setTextColor(0xffecf7ff);t.setTextSize(size);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
@@ -89,7 +89,7 @@ final class FitnessUI {
             play.setText(running?"Pausar":"Retomar");play.setEnabled(s.seconds>0);advance.setText(s.seconds==0?"Concluir distância":"Pular etapa");
         }else{
             FitnessData.Exercise e=current();stage.setText(e.name);detail.setText("Exercício "+(exercise+1)+"/"+FitnessData.GYM[group].length+" • Série "+(set+1)+"/"+e.sets+"\n"+e.tech+" • "+e.rep(phase,set)+" reps • "+e.tempo[phase]+" • descanso "+e.rest[phase]+"s");
-            next.setText(resting?"Descanso • próxima série/exercício":"Execução estimada • confirme a série manualmente");
+            next.setText((running&&remaining<=3000?((remaining+999)/1000)+" • ":"")+(resting?"Descanso • próxima série/exercício":"Execução estimada • confirme a série manualmente"));
             play.setText(running?"Pausar":remaining>0?"Retomar":"Iniciar tempo estimado");play.setEnabled(!resting||remaining>0);advance.setText(resting?"Terminar descanso":"Registrar série");
         }
     }
@@ -104,7 +104,7 @@ final class FitnessUI {
     void destroy(){handler.removeCallbacks(tick);wake(false);}
     void profile(LinearLayout c){
         float w=PlanData.weight(a),h=prefs.getFloat("fit_height",0),age=prefs.getFloat("fit_age",0);int sex=prefs.getInt("fit_sex",-1);
-        line(c,"Peso atual: "+PlanData.fmt(w)+" kg");
+        line(c,"Peso atual: "+PlanData.fmt(w)+" kg");float initial=prefs.getFloat("fit_first_weight",0);if(initial>0)line(c,"Variação desde o primeiro registro: "+PlanData.fmt(w-initial)+" kg");
         if(h>0&&age>0&&sex>=0){double basal=10*w+6.25*h-5*age+(sex==0?5:-161);line(c,"Taxa metabólica basal estimada: "+Math.round(basal)+" kcal/dia • Mifflin–St Jeor");line(c,"IMC: "+String.format(Locale.US,"%.1f",w/Math.pow(h/100,2))+" • Não mede gordura corporal.");}
         else line(c,"Preencha altura, idade e sexo usado na fórmula para calcular a taxa basal.");
         line(c,"TMB não é gasto total diário nem meta de ingestão. Peso e medidas não distinguem gordura de massa magra.");
@@ -118,6 +118,6 @@ final class FitnessUI {
         EditText w=field(c,"Peso (kg)",PlanData.weight(a)),h=field(c,"Altura (cm)",prefs.getFloat("fit_height",0)),age=field(c,"Idade (anos)",prefs.getFloat("fit_age",0));
         Spinner sex=new Spinner(a);ArrayAdapter<String> ad=new ArrayAdapter<>(a,android.R.layout.simple_spinner_dropdown_item,new String[]{"Selecione sexo da fórmula","Masculino","Feminino"});sex.setAdapter(ad);sex.setSelection(prefs.getInt("fit_sex",-1)+1);c.addView(sex);
         String[] labels={"Cintura","Abdômen","Quadril","Peito","Braço","Coxa","Panturrilha"};EditText[] measures=new EditText[labels.length];for(int i=0;i<labels.length;i++)measures[i]=field(c,labels[i]+" (cm, opcional)",prefs.getFloat("fit_m"+i,0));
-        AlertDialog d=new AlertDialog.Builder(a).setTitle("Avaliação corporal").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Salvar",null).create();d.show();d.getButton(-1).setOnClickListener(v->{try{float ww=number(w),hh=number(h),aa=number(age);if(!Float.isFinite(ww)||!Float.isFinite(hh)||!Float.isFinite(aa)||ww<30||ww>350||hh<100||hh>250||aa<18||aa>100||sex.getSelectedItemPosition()==0)throw new Exception();SharedPreferences.Editor ed=prefs.edit();StringBuilder s=new StringBuilder(PlanData.fmt(ww)+" kg");for(int i=0;i<labels.length;i++){float n=number(measures[i]);if(!Float.isFinite(n)||n<0||n>300)throw new Exception();ed.putFloat("fit_m"+i,n);if(n>0)s.append(" • ").append(labels[i]).append(": ").append(n).append(" cm");}ed.putFloat("fit_height",hh).putFloat("fit_age",aa).putInt("fit_sex",sex.getSelectedItemPosition()-1).putString("fit_measure_"+LocalDate.now(),s.toString()).apply();PlanData.setWeight(a,ww);ReminderScheduler.setup(a);d.dismiss();a.render();}catch(Exception ex){Toast.makeText(a,"Confira os valores e selecione o sexo da fórmula.",Toast.LENGTH_LONG).show();}});
+        AlertDialog d=new AlertDialog.Builder(a).setTitle("Avaliação corporal").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Salvar",null).create();d.show();d.getButton(-1).setOnClickListener(v->{try{float ww=number(w),hh=number(h),aa=number(age);if(!Float.isFinite(ww)||!Float.isFinite(hh)||!Float.isFinite(aa)||ww<30||ww>350||hh<100||hh>250||aa<18||aa>100||sex.getSelectedItemPosition()==0)throw new Exception();SharedPreferences.Editor ed=prefs.edit();StringBuilder s=new StringBuilder(PlanData.fmt(ww)+" kg");for(int i=0;i<labels.length;i++){float n=number(measures[i]);if(!Float.isFinite(n)||n<0||n>300)throw new Exception();ed.putFloat("fit_m"+i,n);if(n>0)s.append(" • ").append(labels[i]).append(": ").append(n).append(" cm");}if(!prefs.contains("fit_first_weight"))ed.putFloat("fit_first_weight",ww);ed.putFloat("fit_height",hh).putFloat("fit_age",aa).putInt("fit_sex",sex.getSelectedItemPosition()-1).putString("fit_measure_"+LocalDate.now(),s.toString()).apply();PlanData.setWeight(a,ww);ReminderScheduler.setup(a);d.dismiss();a.render();}catch(Exception ex){Toast.makeText(a,"Confira os valores e selecione o sexo da fórmula.",Toast.LENGTH_LONG).show();}});
     }
 }
