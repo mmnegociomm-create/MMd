@@ -166,45 +166,58 @@ public class MainActivity extends Activity {
             });
         }
     }
+    void registerWater(int day,int ml){
+        int before=PlanData.water(this,day);PlanData.addWater(this,day,ml);
+        ReminderScheduler.refreshWater(this,day);
+        int after=PlanData.water(this,day);
+        Toast.makeText(this,(after>=before?"+":"")+(after-before)+" ml • Total: "+after+" ml",Toast.LENGTH_SHORT).show();
+        render();
+    }
+    void customWater(int day){
+        EditText input=new EditText(this);input.setInputType(InputType.TYPE_CLASS_NUMBER);input.setSingleLine(true);input.setHint("Ex.: 1250");
+        LinearLayout holder=vertical();holder.setPadding(dp(22),0,dp(22),0);holder.addView(input);
+        android.app.AlertDialog d=new android.app.AlertDialog.Builder(this).setTitle("Registrar água (ml)")
+            .setMessage("Informe quanto realmente bebeu, mesmo durante o treino. Não force água em excesso.").setView(holder)
+            .setNegativeButton("Cancelar",null).setPositiveButton("Adicionar",null).setNeutralButton("Descontar",null).create();
+        d.show();
+        for(int which:new int[]{-1,-3})d.getButton(which).setOnClickListener(v->{try{
+            int amount=Integer.parseInt(input.getText().toString().trim());if(amount<=0||amount>15000)throw new Exception();
+            d.dismiss();registerWater(day,which==-1?amount:-amount);
+        }catch(Exception e){input.setError("Informe um número válido em ml");}});
+    }
     private void hydration() {
         int amount=PlanData.water(this,chosen),goal=PlanData.goal(this);
         LinearLayout c=card("HIDRATAÇÃO  💧  •  ATÉ 18H");
-        c.addView(text(amount+" / "+goal+" ml",26,WHITE,true));
-        c.addView(text("Faltam "+Math.max(0,goal-amount)+" ml  •  "+Math.round(amount*100f/goal)+"% da meta",13,amount>=goal?SUCCESS:MUTED,true));
+        c.addView(text(amount+" / "+goal+" ml",30,WHITE,true));
+        c.addView(text(amount>=goal?"✓ Meta atingida • "+(amount-goal)+" ml acima da referência":"Faltam "+(goal-amount)+" ml  •  "+Math.round(amount*100f/goal)+"% da meta",13,amount>=goal?SUCCESS:MUTED,true));
         progress(c,amount,goal);
-        c.addView(text("CONFIRME CADA COPO DEPOIS DE BEBER",12,BLUE,true),lp(-1,-2,15));
-        c.addView(text("11 horários entre 07h e 18h. Toque para marcar ou desfazer. A quantidade é recalculada quando seu peso muda.",12,MUTED,false),lp(-1,-2,5));
-        for(int i=0;i<PlanData.WATER_TIMES.length;i++) {
-            final int slot=i;
-            boolean done=PlanData.waterDone(this,chosen,i);
-            LinearLayout line=new LinearLayout(this);
-            line.setGravity(Gravity.CENTER_VERTICAL);
-            c.addView(line,lp(-1,49,7));
-            TextView label=text(PlanData.WATER_TIMES[i]+"   •   "+PlanData.waterSlotAmount(this,i)+" ml",14,done?SUCCESS:WHITE,true);
-            line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
-            Button confirm=button(done?"✓ BEBI":"CONFIRMAR",done);
-            line.addView(confirm,new LinearLayout.LayoutParams(dp(125),dp(42)));
-            confirm.setOnClickListener(v->{
-                boolean next=!PlanData.waterDone(this,chosen,slot);
-                PlanData.setWaterDone(this,chosen,slot,next);
-                if(next)ReminderScheduler.cancelWater(this,chosen,slot);
-                else ReminderScheduler.setup(this);
-                render();
-            });
-        }
-        c.addView(text("REGISTRO EXTRA (fora dos copos programados)",12,BLUE,true),lp(-1,-2,16));
-        LinearLayout buttons=new LinearLayout(this);
-        c.addView(buttons,lp(-1,44,8));
-        int[] values={200,300,-200};
-        String[] labels={"+200 ml","+300 ml","Corrigir −200"};
+        c.addView(text("REGISTRAR AGORA",12,BLUE,true),lp(-1,-2,14));
+        LinearLayout buttons=new LinearLayout(this);c.addView(buttons,lp(-1,48,8));
+        int[] values={200,300,-200};String[] labels={"+200 ml","+300 ml","−200 ml"};
         for(int i=0;i<3;i++){
             final int ml=values[i];Button b=button(labels[i],i==1);
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
-            if(i>0)p.leftMargin=dp(5);
-            buttons.addView(b,p);
-            b.setOnClickListener(v->{PlanData.addWater(this,chosen,ml);render();});
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);if(i>0)p.leftMargin=dp(5);
+            buttons.addView(b,p);b.setOnClickListener(v->registerWater(chosen,ml));
         }
-        c.addView(text(amount>=goal?"✓ Meta diária atingida!":"A meta é uma referência, não uma obrigação de beber rápido. Não force água em excesso.",12,amount>=goal?SUCCESS:MUTED,false),lp(-1,-2,12));
+        Button custom=button("＋ Informar quantidade em ml",true);c.addView(custom,lp(-1,48,8));custom.setOnClickListener(v->customWater(chosen));
+        c.addView(text("Os registros livres já abatem o saldo. Os horários cobertos não geram novos lembretes.",12,MUTED,false),lp(-1,-2,8));
+        int pending=0,doneCount=0,covered=0;for(int i=0;i<PlanData.WATER_TIMES.length;i++){if(PlanData.waterDone(this,chosen,i))doneCount++;else if(PlanData.plannedWater(this,chosen,i)==0)covered++;else pending++;}
+        LinearLayout schedule=card("HORÁRIOS DE ÁGUA");
+        schedule.addView(text(doneCount+" confirmados • "+covered+" abatidos • "+pending+" pendentes",13,MUTED,false));
+        Button show=button("Ver / editar horários",false);schedule.addView(show,lp(-1,46,8));show.setOnClickListener(v->waterSchedule());
+        c.addView(text("A meta é apenas referência. Beba conforme sede e condições do treino; evite grandes volumes de uma vez.",12,MUTED,false),lp(-1,-2,12));
+    }
+    private void waterSchedule(){
+        ScrollView scroll=new ScrollView(this);LinearLayout body=vertical();body.setPadding(dp(16),dp(8),dp(16),dp(12));scroll.addView(body);
+        android.app.AlertDialog d=new android.app.AlertDialog.Builder(this).setTitle("Horários • dia "+chosen).setView(scroll).setPositiveButton("Fechar",null).create();
+        for(int i=0;i<PlanData.WATER_TIMES.length;i++){
+            final int slot=i;boolean done=PlanData.waterDone(this,chosen,i);int ml=done?PlanData.confirmedWater(this,chosen,i):PlanData.plannedWater(this,chosen,i);
+            LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER_VERTICAL);body.addView(line,lp(-1,48,4));
+            TextView label=text(PlanData.WATER_TIMES[i]+" • "+(ml==0?"Abatido":ml+" ml"),14,done||ml==0?SUCCESS:WHITE,true);line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+            Button b=button(done?"Desfazer":ml==0?"Coberto":"Confirmar",done);line.addView(b,new LinearLayout.LayoutParams(dp(112),dp(42)));b.setEnabled(done||ml>0);
+            b.setOnClickListener(v->{PlanData.setWaterDone(this,chosen,slot,!done);ReminderScheduler.refreshWater(this,chosen);d.dismiss();render();waterSchedule();});
+        }
+        d.show();
     }
     private void weightCard() {
         LinearLayout c=card("RECALCULAR PELO PESO");
