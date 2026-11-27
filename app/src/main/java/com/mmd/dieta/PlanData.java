@@ -78,15 +78,53 @@ public final class PlanData {
     public static boolean waterDone(Context c,int day,int slot) {
         return prefs(c).getBoolean(key(c,day,"water_slot_"+slot),false);
     }
-    public static void setWaterDone(Context c,int day,int slot,boolean done) {
-        if(waterDone(c,day,slot)==done)return;
-        prefs(c).edit().putBoolean(key(c,day,"water_slot_"+slot),done).apply();
-        addWater(c,day,done?waterSlotAmount(c,slot):-waterSlotAmount(c,slot));
+    public static int confirmedWater(Context c,int day,int slot){
+        if(!waterDone(c,day,slot))return 0;
+        return prefs(c).getInt(key(c,day,"water_amount_"+slot),waterSlotAmount(c,slot));
     }
     public static int water(Context c,int day) { return prefs(c).getInt(key(c,day,"water"),0); }
+    public static int remainingWater(Context c,int day){return Math.max(0,goal(c)-water(c,day));}
+    // Fill remaining scheduled cups from the end; manually logged water covers earlier pending cups.
+    public static int plannedWater(Context c,int day,int slot){
+        if(waterDone(c,day,slot))return 0;
+        int remaining=remainingWater(c,day),last=-1,sum=0;
+        for(int i=0;i<WATER_TIMES.length;i++)if(!waterDone(c,day,i)){last=i;sum+=waterSlotAmount(c,i);}
+        int excess=Math.max(0,remaining-sum);
+        for(int i=WATER_TIMES.length-1;i>=slot;i--){
+            if(waterDone(c,day,i))continue;
+            int n=Math.min(remaining,waterSlotAmount(c,i)+(i==last?excess:0));
+            if(i==slot)return n;
+            remaining-=n;
+        }
+        return 0;
+    }
+    private static SharedPreferences.Editor migrateWater(Context c,int day){
+        SharedPreferences.Editor ed=prefs(c).edit();
+        for(int i=0;i<WATER_TIMES.length;i++)if(waterDone(c,day,i)&&!prefs(c).contains(key(c,day,"water_amount_"+i)))ed.putInt(key(c,day,"water_amount_"+i),confirmedWater(c,day,i));
+        return ed;
+    }
+    public static void setWaterDone(Context c,int day,int slot,boolean done) {
+        if(waterDone(c,day,slot)==done)return;
+        int n=done?plannedWater(c,day,slot):confirmedWater(c,day,slot);
+        if(done&&n<=0)return;
+        migrateWater(c,day).putBoolean(key(c,day,"water_slot_"+slot),done)
+            .putInt(key(c,day,"water_amount_"+slot),done?n:0)
+            .putInt(key(c,day,"water"),Math.max(0,water(c,day)+(done?n:-n))).apply();
+    }
     public static void addWater(Context c,int day,int amount) {
-        int n=Math.max(0,Math.min(15000,water(c,day)+amount));
-        prefs(c).edit().putInt(key(c,day,"water"),n).apply();
+        int old=water(c,day);
+        int n=(int)Math.max(0,Math.min(15000L,(long)old+amount));
+        SharedPreferences.Editor ed=migrateWater(c,day);
+        if(n<old){
+            // Correct free entries first, then reduce confirmed cups newest-first if necessary.
+            int confirmed=0;for(int i=0;i<WATER_TIMES.length;i++)confirmed+=confirmedWater(c,day,i);
+            int remove=Math.max(0,confirmed-n);
+            for(int i=WATER_TIMES.length-1;i>=0&&remove>0;i--){
+                int v=confirmedWater(c,day,i),cut=Math.min(v,remove);
+                if(cut>0){ed.putInt(key(c,day,"water_amount_"+i),v-cut).putBoolean(key(c,day,"water_slot_"+i),v>cut);remove-=cut;}
+            }
+        }
+        ed.putInt(key(c,day,"water"),n).apply();
     }
     public static float weight(Context c) { return prefs(c).getFloat("weight",111f); }
     public static void setWeight(Context c,float weight) { prefs(c).edit().putFloat("weight",weight).apply(); }
