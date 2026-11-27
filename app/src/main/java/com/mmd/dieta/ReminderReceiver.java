@@ -23,7 +23,7 @@ public class ReminderReceiver extends BroadcastReceiver {
             else if(slot>=ReminderScheduler.WATER_START) {
                 int w=slot-ReminderScheduler.WATER_START;
                 PlanData.setWaterDone(c,day,w,true);
-                ReminderScheduler.cancelWater(c,day,w);
+                ReminderScheduler.refreshWater(c,day);
             }
             return;
         }
@@ -31,7 +31,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         if(!LocalDate.now().equals(PlanData.date(c,day)))return;
         boolean water=slot>=ReminderScheduler.WATER_START;
         if(!water&&PlanData.mealDone(c,day,slot))return;
-        if(water&&(PlanData.waterDone(c,day,slot-ReminderScheduler.WATER_START)||PlanData.water(c,day)>=PlanData.goal(c)))return;
+        if(water&&(PlanData.plannedWater(c,day,slot-ReminderScheduler.WATER_START)<=0))return;
         NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
         if(nm==null)return;
         if(Build.VERSION.SDK_INT>=33&&c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;
@@ -42,7 +42,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent content=PendingIntent.getActivity(c,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         String title=water?"Hora de beber água 💧":"Hora da refeição — "+PlanData.NAMES[slot];
-        String body=water?"Confirme "+PlanData.waterSlotAmount(c,slot-ReminderScheduler.WATER_START)+" ml após beber. Meta até 18h: "+PlanData.goal(c)+" ml.":"Dia "+day+" • "+PlanData.food(c,day,slot);
+        String body=water?"Confirme "+PlanData.plannedWater(c,day,slot-ReminderScheduler.WATER_START)+" ml após beber. Meta até 18h: "+PlanData.goal(c)+" ml.":"Dia "+day+" • "+PlanData.food(c,day,slot);
         Notification.Builder b=new Notification.Builder(c,CHANNEL).setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title).setContentText(body).setStyle(new Notification.BigTextStyle().bigText(body))
             .setColor(0xff16d9ff).setAutoCancel(true).setContentIntent(content).setPriority(Notification.PRIORITY_HIGH);
