@@ -95,12 +95,12 @@ final class NutritionUI {
         NutritionData.Goal g=NutritionData.dayGoal(a,day);NutritionData.Totals t=NutritionData.day(a,day,false);
         line(c,"Meta do dia: "+g.kcal+" kcal • P "+g.p+" g • C "+g.c+" g • G "+g.f+" g");
         line(c,"Planejado: "+n(t.kcal)+" kcal"+(t.known?" • P "+n(t.p)+" • C "+n(t.c)+" • G "+n(t.f)+" g":" • macros ainda incompletos"));
-        button(c,PlanData.natural(a)?"Restaurar modelo Natural 60D":"Gerar modelo inicial rico em proteína",()->template(day));
+        button(c,PlanData.natural(a)?"Gerar cardápio dos meus alimentos":"Ativar cardápio dos meus alimentos",()->{if(PlanData.natural(a))template(day);else a.activateNatural();});
         button(c,"Copiar cardápio personalizado para dias futuros",()->copy(day));
         line(c,"Edite cada refeição em gramas; dados nutricionais são aproximados. Confirme apenas o que foi realmente consumido.");
     }
     void template(int day){
-        if(PlanData.natural(a)){new AlertDialog.Builder(a).setTitle("Restaurar modelo do dia?").setMessage("Refeições já confirmadas serão mantidas.").setNegativeButton("Cancelar",null).setPositiveButton("Restaurar",(d,w)->{for(int m=0;m<4;m++)if(!PlanData.mealDone(a,day,m))NutritionData.clear(a,day,m);a.render();}).show();return;}
+        if(PlanData.natural(a)){new AlertDialog.Builder(a).setTitle("Gerar cardápio dos seus alimentos?").setMessage("Substitui as refeições não confirmadas deste dia por bisteca bovina, carne moída, macaxeira, batata, arroz, farinha, pão de leite e leite em pó integral. Refeições confirmadas são mantidas.").setNegativeButton("Cancelar",null).setPositiveButton("Restaurar",(d,w)->{for(int m=0;m<4;m++)if(!PlanData.mealDone(a,day,m))NutritionData.clear(a,day,m);a.render();}).show();return;}
         new AlertDialog.Builder(a).setTitle("Modelo ajustado às calorias").setMessage("Cria quatro refeições editáveis com frango, ovos, iogurte, arroz, feijão, frutas e gorduras. Porções são escaladas pela energia, não garantem coincidência exata com os macros. Refeições confirmadas são preservadas.").setNegativeButton("Cancelar",null).setPositiveButton("Gerar",(d,w)->{
             int[][] ids={{3,11,4,13},{0,6,7,15,16},{4,10,14,17},{2,8,15,16}};
             int[][] grams={{150,60,170,100},{180,150,100,150,5},{170,40,150,15},{180,220,150,5}};
