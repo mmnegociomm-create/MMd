@@ -99,10 +99,10 @@ public class MainActivity extends Activity {
         for(int i=0;i<tabs.length;i++){final int n=i;Button b=button(tabs[i],tab==i);b.setTextSize(11);b.setPadding(0,0,0,0);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(48),1);p.leftMargin=dp(2);nav.addView(b,p);b.setOnClickListener(v->{if(fitness.busy()&&n!=tab){Toast.makeText(this,"Finalize o treino antes de mudar de tela.",Toast.LENGTH_SHORT).show();return;}tab=n;render();});}
         frame.addView(nav,new LinearLayout.LayoutParams(-1,-2));setContentView(frame);
         switch(tab){
-            case 0: dayPicker();natural.home(card("PROJETO NATURAL 60D"),chosen);nutrition.dashboard(card("DASHBOARD • MINHAS METAS"),chosen);break;
+            case 0: dayPicker();if(!PlanData.natural(this))natural.home(card("PROJETO NATURAL 60D"),chosen);nutrition.dashboard(card("DASHBOARD • MINHAS METAS"),chosen);if(PlanData.natural(this))natural.home(card("PROJETO NATURAL 60D"),chosen);break;
             case 1: dayPicker();nutrition.planner(card("PLANEJAMENTO ALIMENTAR"),chosen);menu();break;
             case 2: dayPicker();hydration();break;
-            case 3: if(PlanData.natural(this)&&!fitness.busy())natural.cardio(card("CARDIO MATINAL"),chosen);fitness.runningScreen(card("CORRIDA GUIADA"));break;
+            case 3: if(PlanData.natural(this)&&!fitness.busy()){dayPicker();natural.cardio(card("CARDIO MATINAL"),chosen);}fitness.runningScreen(card("CORRIDA GUIADA"));break;
             case 4: fitness.gymScreen(card("MUSCULAÇÃO GUIADA"));break;
             case 5: fitness.profile(card("EVOLUÇÃO CORPORAL"));if(PlanData.natural(this))natural.body(card("ACOMPANHAMENTO SEMANAL"),chosen);break;
         }
@@ -144,7 +144,7 @@ public class MainActivity extends Activity {
     private void menu() {
         int type=PlanData.type(chosen),total=(int)Math.round(NutritionData.day(this,chosen,false).kcal);
         LinearLayout c=card("REFEIÇÕES DO DIA • ~"+total+" kcal");
-        c.addView(text("Pesos cozidos, exceto aveia. Valores aproximados; ajuste com nutricionista.",12,MUTED,false));if(PlanData.natural(this)||PlanData.newPlan(this)){c.addView(text("Cardápio base disponível; personalize por refeição.",12,MUTED,false),lp(-1,-2,8));}else{Button activate=button("Iniciar novo plano de 15 dias",true);c.addView(activate,lp(-1,48,8));activate.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("Novo ciclo alimentar").setMessage("Começa hoje com cardápio de maior proteína. Registros antigos ficam armazenados, mas não serão exibidos neste ciclo.").setNegativeButton("Cancelar",null).setPositiveButton("Iniciar",(d,w)->{for(int j=1;j<=15;j++){for(int k=0;k<4;k++)ReminderScheduler.cancelMeal(this,j,k);for(int k=0;k<PlanData.WATER_TIMES.length;k++)ReminderScheduler.cancelWater(this,j,k);}PlanData.beginNew(this);chosen=1;ReminderScheduler.setup(this);render();}).show());}
+        c.addView(text("Carnes, arroz, feijão, batatas e macaxeira pesados cozidos; flocão, leite em pó, farinha e aveia secos. Café e estévia opcionais. Valores aproximados.",12,MUTED,false));if(PlanData.natural(this)||PlanData.newPlan(this)){c.addView(text("Cardápio base disponível; personalize por refeição.",12,MUTED,false),lp(-1,-2,8));}else{Button activate=button("Iniciar novo plano de 15 dias",true);c.addView(activate,lp(-1,48,8));activate.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("Novo ciclo alimentar").setMessage("Começa hoje com cardápio de maior proteína. Registros antigos ficam armazenados, mas não serão exibidos neste ciclo.").setNegativeButton("Cancelar",null).setPositiveButton("Iniciar",(d,w)->{for(int j=1;j<=15;j++){for(int k=0;k<4;k++)ReminderScheduler.cancelMeal(this,j,k);for(int k=0;k<PlanData.WATER_TIMES.length;k++)ReminderScheduler.cancelWater(this,j,k);}PlanData.beginNew(this);chosen=1;ReminderScheduler.setup(this);render();}).show());}
         for(int m=0;m<4;m++) {
             final int index=m;
             LinearLayout sec=vertical();
