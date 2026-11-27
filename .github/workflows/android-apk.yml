@@ -1,7 +1,7 @@
 name: Gerar APK Android
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/fitness-v2']
   workflow_dispatch:
 permissions:
   contents: read
