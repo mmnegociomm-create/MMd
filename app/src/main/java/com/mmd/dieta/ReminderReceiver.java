@@ -17,7 +17,9 @@ public class ReminderReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context c,Intent i) {
         int day=i.getIntExtra(ReminderScheduler.EXTRA_DAY,-1);
         int slot=i.getIntExtra(ReminderScheduler.EXTRA_SLOT,-1);
-        if(day<1||day>15||slot<0||slot>=21)return;
+        if(day<1||day>PlanData.days(c)||slot<0||slot>=21)return;
+        if(!LocalDate.now().equals(PlanData.date(c,day)))return;
+        String cycle=i.getStringExtra("cycle");if(PlanData.natural(c)&&!PlanData.key(c,day,"alarm").equals(cycle))return;
         if(ReminderScheduler.ACTION_CONFIRM.equals(i.getAction())) {
             if(slot<4) { NutritionData.freeze(c,day);PlanData.setMeal(c,day,slot,true);ReminderScheduler.cancelMeal(c,day,slot); }
             else if(slot>=ReminderScheduler.WATER_START) {
@@ -29,6 +31,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         }
         if(!ReminderScheduler.ACTION_ALERT.equals(i.getAction()))return;
         if(!LocalDate.now().equals(PlanData.date(c,day)))return;
+        if(PlanData.natural(c)&&!LocalDate.now().toString().equals(PlanData.prefs(c).getString("last_alarm_roll",""))){PlanData.prefs(c).edit().putString("last_alarm_roll",LocalDate.now().toString()).apply();ReminderScheduler.setup(c);}
         boolean water=slot>=ReminderScheduler.WATER_START;
         if(!water&&PlanData.mealDone(c,day,slot))return;
         if(water&&(PlanData.plannedWater(c,day,slot-ReminderScheduler.WATER_START)<=0))return;
@@ -48,7 +51,7 @@ public class ReminderReceiver extends BroadcastReceiver {
             .setColor(0xff16d9ff).setAutoCancel(true).setContentIntent(content).setPriority(Notification.PRIORITY_HIGH);
         if(true) {
             Intent confirm=new Intent(c,ReminderReceiver.class).setAction(ReminderScheduler.ACTION_CONFIRM);
-            confirm.putExtra(ReminderScheduler.EXTRA_DAY,day).putExtra(ReminderScheduler.EXTRA_SLOT,slot);
+            confirm.putExtra(ReminderScheduler.EXTRA_DAY,day).putExtra(ReminderScheduler.EXTRA_SLOT,slot).putExtra("cycle",PlanData.key(c,day,"alarm"));
             PendingIntent action=PendingIntent.getBroadcast(c,8000+day*100+slot,confirm,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
             b.addAction(new Notification.Action.Builder(android.R.drawable.checkbox_on_background,water?"Bebi água":"Concluí",action).build());
         }
