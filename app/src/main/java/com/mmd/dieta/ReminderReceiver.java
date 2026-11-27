@@ -19,7 +19,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         int slot=i.getIntExtra(ReminderScheduler.EXTRA_SLOT,-1);
         if(day<1||day>15||slot<0||slot>=21)return;
         if(ReminderScheduler.ACTION_CONFIRM.equals(i.getAction())) {
-            if(slot<4) { PlanData.setMeal(c,day,slot,true);ReminderScheduler.cancelMeal(c,day,slot); }
+            if(slot<4) { NutritionData.freeze(c,day);PlanData.setMeal(c,day,slot,true);ReminderScheduler.cancelMeal(c,day,slot); }
             else if(slot>=ReminderScheduler.WATER_START) {
                 int w=slot-ReminderScheduler.WATER_START;
                 PlanData.setWaterDone(c,day,w,true);
@@ -42,7 +42,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent content=PendingIntent.getActivity(c,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         String title=water?"Hora de beber água 💧":"Hora da refeição — "+PlanData.NAMES[slot];
-        String body=water?"Confirme "+PlanData.plannedWater(c,day,slot-ReminderScheduler.WATER_START)+" ml após beber. Meta até 18h: "+PlanData.goal(c)+" ml.":"Dia "+day+" • "+PlanData.food(c,day,slot);
+        String body=water?"Confirme "+PlanData.plannedWater(c,day,slot-ReminderScheduler.WATER_START)+" ml após beber. Meta até 18h: "+PlanData.goal(c)+" ml.":"Dia "+day+" • "+(NutritionData.has(c,day,slot)?NutritionData.description(NutritionData.read(c,day,slot)):PlanData.food(c,day,slot));
         Notification.Builder b=new Notification.Builder(c,CHANNEL).setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title).setContentText(body).setStyle(new Notification.BigTextStyle().bigText(body))
             .setColor(0xff16d9ff).setAutoCancel(true).setContentIntent(content).setPriority(Notification.PRIORITY_HIGH);
