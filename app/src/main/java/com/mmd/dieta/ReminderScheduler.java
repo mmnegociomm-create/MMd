@@ -34,10 +34,19 @@ public final class ReminderScheduler {
                 boolean water=slot>=WATER_START;
                 if(slot>=4 && slot<WATER_START)continue;
                 if(!water && PlanData.mealDone(c,day,slot))continue;
-                if(water && (PlanData.waterDone(c,day,slot-WATER_START) || PlanData.water(c,day)>=PlanData.goal(c)))continue;
+                if(water && (PlanData.plannedWater(c,day,slot-WATER_START)<=0))continue;
                 String time=water?PlanData.WATER_TIMES[slot-WATER_START]:PlanData.TIMES[slot];
                 LocalDateTime dateTime=LocalDateTime.of(PlanData.date(c,day),LocalTime.parse(time));
                 at(c,day,slot,false,dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+            }
+        }
+    }
+    public static void refreshWater(Context c,int day){
+        for(int i=0;i<PlanData.WATER_TIMES.length;i++){
+            cancelWater(c,day,i);
+            if(PlanData.plannedWater(c,day,i)>0){
+                LocalDateTime dt=LocalDateTime.of(PlanData.date(c,day),LocalTime.parse(PlanData.WATER_TIMES[i]));
+                at(c,day,WATER_START+i,false,dt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
             }
         }
     }
