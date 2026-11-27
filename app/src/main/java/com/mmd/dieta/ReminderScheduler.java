@@ -17,8 +17,8 @@ public final class ReminderScheduler {
     public static final int WATER_START=10;
     private static PendingIntent intent(Context c,int day,int slot,boolean repeat) {
         Intent i=new Intent(c,ReminderReceiver.class).setAction(ACTION_ALERT);
-        i.putExtra(EXTRA_DAY,day).putExtra(EXTRA_SLOT,slot);
-        int code=1000+day*100+slot+(repeat?3000:0);
+        i.putExtra(EXTRA_DAY,day).putExtra(EXTRA_SLOT,slot).putExtra("cycle",PlanData.key(c,day,"alarm"));
+        int code=1000+day*100+slot+(repeat?10000:0);
         return PendingIntent.getBroadcast(c,code,i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
     }
     private static AlarmManager alarms(Context c) { return (AlarmManager)c.getSystemService(Context.ALARM_SERVICE); }
@@ -29,13 +29,13 @@ public final class ReminderScheduler {
     }
     public static void setup(Context c) {
         PlanData.start(c);
-        for(int day=1;day<=PlanData.DAYS;day++) {
+        for(int day=PlanData.today(c);day<=Math.min(PlanData.days(c),PlanData.today(c)+6);day++) {
             for(int slot=0;slot<WATER_START+PlanData.WATER_TIMES.length;slot++) {
                 boolean water=slot>=WATER_START;
                 if(slot>=4 && slot<WATER_START)continue;
                 if(!water && PlanData.mealDone(c,day,slot))continue;
                 if(water && (PlanData.plannedWater(c,day,slot-WATER_START)<=0))continue;
-                String time=water?PlanData.WATER_TIMES[slot-WATER_START]:PlanData.TIMES[slot];
+                String time=water?PlanData.WATER_TIMES[slot-WATER_START]:PlanData.mealTime(c,slot);
                 LocalDateTime dateTime=LocalDateTime.of(PlanData.date(c,day),LocalTime.parse(time));
                 at(c,day,slot,false,dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
             }
@@ -67,6 +67,7 @@ public final class ReminderScheduler {
         if(a!=null) {
             a.cancel(intent(c,day,meal,false));
             a.cancel(intent(c,day,meal,true));
+            if(!PlanData.natural(c)){Intent old=new Intent(c,ReminderReceiver.class).setAction(ACTION_ALERT);PendingIntent legacy=PendingIntent.getBroadcast(c,4000+day*100+meal,old,PendingIntent.FLAG_NO_CREATE|PendingIntent.FLAG_IMMUTABLE);if(legacy!=null)a.cancel(legacy);}
         }
         android.app.NotificationManager n=(android.app.NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
         if(n!=null)n.cancel(20000+day*100+meal);
