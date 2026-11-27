@@ -107,7 +107,7 @@ public final class PlanData {
         if(waterDone(c,day,slot)==done)return;
         int n=done?plannedWater(c,day,slot):confirmedWater(c,day,slot);
         if(done&&n<=0)return;
-        migrateWater(c,day).putBoolean(key(c,day,"water_slot_"+slot),done)
+        migrateWater(c,day).putInt(key(c,day,"nut_water_goal"),goal(c)).putBoolean(key(c,day,"water_slot_"+slot),done)
             .putInt(key(c,day,"water_amount_"+slot),done?n:0)
             .putInt(key(c,day,"water"),Math.max(0,water(c,day)+(done?n:-n))).apply();
     }
@@ -124,7 +124,7 @@ public final class PlanData {
                 if(cut>0){ed.putInt(key(c,day,"water_amount_"+i),v-cut).putBoolean(key(c,day,"water_slot_"+i),v>cut);remove-=cut;}
             }
         }
-        ed.putInt(key(c,day,"water"),n).apply();
+        ed.putInt(key(c,day,"water"),n).putInt(key(c,day,"nut_water_goal"),goal(c)).apply();
     }
     public static float weight(Context c) { return prefs(c).getFloat("weight",111f); }
     public static void setWeight(Context c,float weight) { prefs(c).edit().putFloat("weight",weight).apply(); }
