@@ -26,7 +26,7 @@ final class FitnessUI {
     int index=0; long end=0,remaining=0; boolean running=false,resting=false;
     int lastAlert=-1;
     String mode="";
-    TextView timer,stage,next,detail; Button play,advance;
+    TextView timer,stage,next,detail; Button play,advance; MotionView motion;
     final Runnable tick=new Runnable(){public void run(){refresh();handler.removeCallbacks(this);if(running)handler.postDelayed(this,100);}};
     FitnessUI(MainActivity a){this.a=a;prefs=PlanData.prefs(a);week=prefs.getInt("run_week",1);day=prefs.getInt("run_day",0);phase=prefs.getInt("gym_phase",0);group=prefs.getInt("gym_group",0);}
     int dp(int n){return (int)(n*a.getResources().getDisplayMetrics().density+.5f);}
@@ -40,7 +40,7 @@ final class FitnessUI {
     String time(long ms){long s=Math.max(0,(ms+999)/1000);return String.format(Locale.US,"%02d:%02d",s/60,s%60);}
     void runningScreen(LinearLayout c){
         if(mode.equals("run")){session(c);return;}
-        line(c,"12 semanas • 3 sessões por semana • ritmo de conversa");
+        line(c,"12 semanas • 3 sessões por semana • ritmo de conversa");MotionView preview=new MotionView(a);c.addView(preview,new LinearLayout.LayoutParams(-1,dp(142)));preview.show("RUNL • Trote leve",true);
         btn(c,"Semana "+week+"  •  Fase "+((week-1)/4+1),()->choose("Semana de corrida",new String[]{"1","2","3","4","5","6","7","8","9","10","11","12"},week-1,i->{week=i+1;prefs.edit().putInt("run_week",week).apply();a.render();}));
         String[] days={"Segunda-feira","Quarta-feira","Sábado"};
         btn(c,days[day],()->choose("Dia de corrida",days,day,i->{day=i;prefs.edit().putInt("run_day",day).apply();a.render();}));
@@ -59,6 +59,7 @@ final class FitnessUI {
         String[] phases={"Semanas 1–2","Semanas 3–4","Semanas 5–6"};
         btn(c,names[group],()->choose("Ficha",names,group,i->{group=i;prefs.edit().putInt("gym_group",i).apply();a.render();}));
         btn(c,phases[phase],()->choose("Período",phases,phase,i->{phase=i;prefs.edit().putInt("gym_phase",i).apply();a.render();}));
+        MotionView preview=new MotionView(a);c.addView(preview,new LinearLayout.LayoutParams(-1,dp(135)));preview.show(FitnessData.GYM[group][1].name,true);
         line(c,"Fichas originais de 2017. Retome com cargas leves e séries reduzidas se necessário; não force falha muscular. A cadência é interpretada como segundos de subida:descida.");
         btn(c,"▶ Iniciar musculação",()->{exercise=0;set=0;resting=false;mode="gym";remaining=0;running=false;a.render();});
         btn(c,"Ver ficha completa",()->{StringBuilder s=new StringBuilder();for(FitnessData.Exercise e:FitnessData.GYM[group])s.append(e.name).append("\n").append(e.tech).append(" • ").append(e.sets).append(" séries • ").append(e.reps[phase]).append(" reps • ").append(e.tempo[phase]).append(" • ").append(e.rest[phase]).append("s descanso\n\n");new AlertDialog.Builder(a).setTitle(names[group]).setMessage(s.toString()).setPositiveButton("Fechar",null).show();});
@@ -68,11 +69,13 @@ final class FitnessUI {
     void session(LinearLayout c){
         stage=txt("",23,true);c.addView(stage);
         detail=txt("",15,false);c.addView(detail);
-        timer=txt("",66,true);timer.setGravity(Gravity.CENTER);c.addView(timer,new LinearLayout.LayoutParams(-1,dp(115)));
+        motion=new MotionView(a);LinearLayout.LayoutParams art=new LinearLayout.LayoutParams(-1,dp(165));art.topMargin=dp(8);c.addView(motion,art);
+        timer=txt("",66,true);timer.setGravity(Gravity.CENTER);c.addView(timer,new LinearLayout.LayoutParams(-1,dp(88)));
         next=txt("",15,true);next.setGravity(Gravity.CENTER);c.addView(next);
         play=btn(c,"",()->{if(running)pause();else if(remaining>0)startClock();else if(mode.equals("gym")&&!resting){remaining=estimatedSeconds()*1000L;startClock();}refresh();});
         advance=btn(c,"",()->{if(mode.equals("run")){if(!running&&remaining==0)nextRun();else new AlertDialog.Builder(a).setTitle("Pular etapa?").setNegativeButton("Cancelar",null).setPositiveButton("Pular",(d,w)->nextRun()).show();}else if(resting)nextSet();else recordSet();});
         if(mode.equals("gym"))btn(c,"Técnica e cadência",()->{FitnessData.Exercise e=current();String help=e.tech.equals("Pirâmide")?"Repetições por série conforme a ficha; ajuste carga com técnica.":e.tech.equals("Drop set")?"Reduza a carga após o bloco inicial. Não é necessário ir à falha ao retomar.":e.tech.equals("Bi-set")||e.tech.equals("Super set")?"Faça os dois movimentos em sequência, depois descanse.":"Repita as séries previstas com descanso entre elas.";new AlertDialog.Builder(a).setTitle(e.tech).setMessage(help+"\nRitmo "+e.tempo[phase]+": interpretação subida:descida.").setPositiveButton("OK",null).show();});
+        btn(c,"💧 Registrar água do treino",()->a.customWater(PlanData.today(a)));
         btn(c,"Encerrar sessão",()->new AlertDialog.Builder(a).setTitle("Encerrar sem concluir?").setNegativeButton("Continuar",null).setPositiveButton("Encerrar",(d,w)->finish(false)).show());
         wake(true);refresh();
     }
@@ -83,12 +86,12 @@ final class FitnessUI {
         if(running){remaining=Math.max(0,end-SystemClock.elapsedRealtime());int sec=(int)((remaining+999)/1000);if(sec<=3&&sec>0&&sec!=lastAlert){lastAlert=sec;buzz(90);}if(remaining==0){running=false;handler.removeCallbacks(tick);buzz(350);if(mode.equals("run")){nextRun();return;}if(resting){nextSet();return;}}}
         timer.setText(time(remaining));
         if(mode.equals("run")){
-            FitnessData.Step s=steps.get(index);stage.setText(s.name);detail.setText("Etapa "+(index+1)+" de "+steps.size()+" • "+(s.seconds==0?"Distância manual":s.seconds/60+" min"));
+            FitnessData.Step s=steps.get(index);stage.setText(s.name);if(motion!=null)motion.show(s.name,running||s.seconds==0);detail.setText("Etapa "+(index+1)+" de "+steps.size()+" • "+(s.seconds==0?"Distância manual":s.seconds/60+" min"));
             String upcoming=index+1<steps.size()?steps.get(index+1).name:"Fim do treino";
             next.setText((running&&remaining<=3000?((remaining+999)/1000)+" • ":"")+"Próximo: "+upcoming);
             play.setText(running?"Pausar":"Retomar");play.setEnabled(s.seconds>0);advance.setText(s.seconds==0?"Concluir distância":"Pular etapa");
         }else{
-            FitnessData.Exercise e=current();stage.setText(e.name);detail.setText("Exercício "+(exercise+1)+"/"+FitnessData.GYM[group].length+" • Série "+(set+1)+"/"+e.sets+"\n"+e.tech+" • "+e.rep(phase,set)+" reps • "+e.tempo[phase]+" • descanso "+e.rest[phase]+"s");
+            FitnessData.Exercise e=current();stage.setText(e.name);if(motion!=null)motion.show(resting?"Descanso":e.name+" • "+e.tech,!resting);detail.setText("Exercício "+(exercise+1)+"/"+FitnessData.GYM[group].length+" • Série "+(set+1)+"/"+e.sets+"\n"+e.tech+" • "+e.rep(phase,set)+" reps • "+e.tempo[phase]+" • descanso "+e.rest[phase]+"s");
             next.setText((running&&remaining<=3000?((remaining+999)/1000)+" • ":"")+(resting?"Descanso • próxima série/exercício":"Execução estimada • confirme a série manualmente"));
             play.setText(running?"Pausar":remaining>0?"Retomar":"Iniciar tempo estimado");play.setEnabled(!resting||remaining>0);advance.setText(resting?"Terminar descanso":"Registrar série");
         }
@@ -100,7 +103,7 @@ final class FitnessUI {
         new AlertDialog.Builder(a).setTitle("Série realizada").setMessage("Registre a carga, se desejar.").setView(load).setNegativeButton("Cancelar",null).setPositiveButton("Salvar",(d,w)->{prefs.edit().putString(key,load.getText().toString()).putString("gym_log_"+System.currentTimeMillis(),current().name+" • "+(set+1)+" • "+load.getText()).apply();if(exercise==FitnessData.GYM[group].length-1&&set==current().sets-1){finish(true);return;}resting=true;remaining=current().rest[phase]*1000L;startClock();refresh();}).show();
     }
     void nextSet(){handler.removeCallbacks(tick);running=false;resting=false;remaining=0;set++;if(set>=current().sets){exercise++;set=0;}if(exercise>=FitnessData.GYM[group].length){finish(true);return;}refresh();}
-    void finish(boolean completed){handler.removeCallbacks(tick);running=false;wake(false);if(completed){if(mode.equals("run"))prefs.edit().putBoolean("run_done_"+week+"_"+day,true).apply();else prefs.edit().putString("gym_done_"+group,LocalDate.now().toString()).apply();}mode="";timer=null;a.render();if(completed)Toast.makeText(a,"Treino concluído!",Toast.LENGTH_LONG).show();}
+    void finish(boolean completed){handler.removeCallbacks(tick);running=false;wake(false);if(completed){if(mode.equals("run"))prefs.edit().putBoolean("run_done_"+week+"_"+day,true).apply();else prefs.edit().putString("gym_done_"+group,LocalDate.now().toString()).apply();}mode="";timer=null;motion=null;a.render();if(completed)Toast.makeText(a,"Treino concluído!",Toast.LENGTH_LONG).show();}
     void destroy(){handler.removeCallbacks(tick);wake(false);}
     void profile(LinearLayout c){
         float w=PlanData.weight(a),h=prefs.getFloat("fit_height",0),age=prefs.getFloat("fit_age",0);int sex=prefs.getInt("fit_sex",-1);
