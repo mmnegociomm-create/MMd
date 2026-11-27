@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
     private int tab=0;
     private FitnessUI fitness;
     private NutritionUI nutrition;
+    private NaturalUI natural;
     private final DateTimeFormatter fmt=DateTimeFormatter.ofPattern("dd/MM/yyyy",new Locale("pt","BR"));
     private int dp(float n) {return (int)(n*getResources().getDisplayMetrics().density+0.5f);}
     private GradientDrawable drawable(int color,int stroke,int radius) {
@@ -77,14 +78,15 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
-        PlanData.start(this);chosen=PlanData.today(this);fitness=new FitnessUI(this);nutrition=new NutritionUI(this);
+        PlanData.start(this);chosen=PlanData.today(this);fitness=new FitnessUI(this);nutrition=new NutritionUI(this);natural=new NaturalUI(this);
         ReminderScheduler.setup(this);
         if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},101);
         render();
     }
     @Override protected void onResume(){super.onResume();if(root!=null)render();}
-    @Override protected void onDestroy(){if(fitness!=null)fitness.destroy();super.onDestroy();}
+    @Override protected void onActivityResult(int request,int result,android.content.Intent data){super.onActivityResult(request,result,data);if(natural!=null)natural.photoResult(request,result,data);}
+    @Override protected void onDestroy(){if(fitness!=null)fitness.destroy();if(natural!=null)natural.destroy();super.onDestroy();}
     @Override public void onBackPressed(){if(fitness!=null&&fitness.busy()){new android.app.AlertDialog.Builder(this).setTitle("Treino em andamento").setMessage("Encerre pela tela de treino ou continue.").setPositiveButton("Continuar",null).show();}else if(tab!=0){tab=0;render();}else super.onBackPressed();}
     void render() {
         LinearLayout frame=vertical();frame.setBackgroundColor(BG);
@@ -97,16 +99,17 @@ public class MainActivity extends Activity {
         for(int i=0;i<tabs.length;i++){final int n=i;Button b=button(tabs[i],tab==i);b.setTextSize(11);b.setPadding(0,0,0,0);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(48),1);p.leftMargin=dp(2);nav.addView(b,p);b.setOnClickListener(v->{if(fitness.busy()&&n!=tab){Toast.makeText(this,"Finalize o treino antes de mudar de tela.",Toast.LENGTH_SHORT).show();return;}tab=n;render();});}
         frame.addView(nav,new LinearLayout.LayoutParams(-1,-2));setContentView(frame);
         switch(tab){
-            case 0: dayPicker();nutrition.dashboard(card("DASHBOARD • MINHAS METAS"),chosen);break;
+            case 0: dayPicker();natural.home(card("PROJETO NATURAL 60D"),chosen);nutrition.dashboard(card("DASHBOARD • MINHAS METAS"),chosen);break;
             case 1: dayPicker();nutrition.planner(card("PLANEJAMENTO ALIMENTAR"),chosen);menu();break;
             case 2: dayPicker();hydration();break;
-            case 3: fitness.runningScreen(card("CORRIDA GUIADA"));break;
+            case 3: if(PlanData.natural(this)&&!fitness.busy())natural.cardio(card("CARDIO MATINAL"),chosen);fitness.runningScreen(card("CORRIDA GUIADA"));break;
             case 4: fitness.gymScreen(card("MUSCULAÇÃO GUIADA"));break;
-            case 5: fitness.profile(card("EVOLUÇÃO CORPORAL"));break;
+            case 5: fitness.profile(card("EVOLUÇÃO CORPORAL"));if(PlanData.natural(this))natural.body(card("ACOMPANHAMENTO SEMANAL"),chosen);break;
         }
     }
+    void activateNatural(){new android.app.AlertDialog.Builder(this).setTitle("Iniciar Projeto Natural 60D?").setMessage("Inicia hoje um novo ciclo com 2.400 kcal, 180 g de proteína, 240 g de carboidratos e 80 g de gordura. O histórico anterior permanece salvo, mas os dias exibidos serão do novo ciclo.").setNegativeButton("Cancelar",null).setPositiveButton("Iniciar 60 dias",(d,w)->{for(int j=1;j<=PlanData.days(this);j++){for(int k=0;k<4;k++)ReminderScheduler.cancelMeal(this,j,k);for(int k=0;k<PlanData.WATER_TIMES.length;k++)ReminderScheduler.cancelWater(this,j,k);}PlanData.beginNatural(this);chosen=1;ReminderScheduler.setup(this);render();}).show();}
     void openDiet(){tab=1;render();}
-    private void dayPicker(){LinearLayout c=card("Dia do protocolo");Button b=button("Dia "+chosen+" / 15  •  "+PlanData.date(this,chosen).format(fmt),true);c.addView(b,lp(-1,46,0));b.setOnClickListener(v->{String[] days=new String[15];for(int i=0;i<15;i++)days[i]="Dia "+(i+1)+" • "+PlanData.date(this,i+1).format(fmt);new android.app.AlertDialog.Builder(this).setTitle("Escolher dia").setSingleChoiceItems(days,chosen-1,(d,i)->{chosen=i+1;d.dismiss();render();}).setNegativeButton("Cancelar",null).show();});
+    private void dayPicker(){LinearLayout c=card("Dia do protocolo");Button b=button("Dia "+chosen+" / "+PlanData.days(this)+"  •  "+PlanData.date(this,chosen).format(fmt),true);c.addView(b,lp(-1,46,0));b.setOnClickListener(v->{String[] days=new String[PlanData.days(this)];for(int i=0;i<days.length;i++)days[i]="Dia "+(i+1)+" • "+PlanData.date(this,i+1).format(fmt);new android.app.AlertDialog.Builder(this).setTitle("Escolher dia").setSingleChoiceItems(days,chosen-1,(d,i)->{chosen=i+1;d.dismiss();render();}).setNegativeButton("Cancelar",null).show();});
     }
     private void header() {
         LinearLayout hero=vertical();hero.setPadding(dp(19),dp(20),dp(19),dp(19));
@@ -141,7 +144,7 @@ public class MainActivity extends Activity {
     private void menu() {
         int type=PlanData.type(chosen),total=(int)Math.round(NutritionData.day(this,chosen,false).kcal);
         LinearLayout c=card("REFEIÇÕES DO DIA • ~"+total+" kcal");
-        c.addView(text("Pesos cozidos, exceto aveia. Valores aproximados; ajuste com nutricionista.",12,MUTED,false));if(PlanData.newPlan(this)){c.addView(text("Cardápio base disponível; personalize por refeição.",12,MUTED,false),lp(-1,-2,8));}else{Button activate=button("Iniciar novo plano de 15 dias",true);c.addView(activate,lp(-1,48,8));activate.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("Novo ciclo alimentar").setMessage("Começa hoje com cardápio de maior proteína. Registros antigos ficam armazenados, mas não serão exibidos neste ciclo.").setNegativeButton("Cancelar",null).setPositiveButton("Iniciar",(d,w)->{for(int j=1;j<=15;j++){for(int k=0;k<4;k++)ReminderScheduler.cancelMeal(this,j,k);for(int k=0;k<PlanData.WATER_TIMES.length;k++)ReminderScheduler.cancelWater(this,j,k);}PlanData.beginNew(this);chosen=1;ReminderScheduler.setup(this);render();}).show());}
+        c.addView(text("Pesos cozidos, exceto aveia. Valores aproximados; ajuste com nutricionista.",12,MUTED,false));if(PlanData.natural(this)||PlanData.newPlan(this)){c.addView(text("Cardápio base disponível; personalize por refeição.",12,MUTED,false),lp(-1,-2,8));}else{Button activate=button("Iniciar novo plano de 15 dias",true);c.addView(activate,lp(-1,48,8));activate.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("Novo ciclo alimentar").setMessage("Começa hoje com cardápio de maior proteína. Registros antigos ficam armazenados, mas não serão exibidos neste ciclo.").setNegativeButton("Cancelar",null).setPositiveButton("Iniciar",(d,w)->{for(int j=1;j<=15;j++){for(int k=0;k<4;k++)ReminderScheduler.cancelMeal(this,j,k);for(int k=0;k<PlanData.WATER_TIMES.length;k++)ReminderScheduler.cancelWater(this,j,k);}PlanData.beginNew(this);chosen=1;ReminderScheduler.setup(this);render();}).show());}
         for(int m=0;m<4;m++) {
             final int index=m;
             LinearLayout sec=vertical();
@@ -150,7 +153,7 @@ public class MainActivity extends Activity {
             c.addView(sec,lp(-1,-2,m==0?13:9));
             LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER_VERTICAL);
             sec.addView(line);
-            TextView title=text(PlanData.TIMES[m]+"  "+PlanData.NAMES[m],14,WHITE,true);
+            TextView title=text(PlanData.mealTime(this,m)+"  "+PlanData.NAMES[m],14,WHITE,true);
             line.addView(title,new LinearLayout.LayoutParams(0,-2,1));
             NutritionData.Totals meal=NutritionData.meal(this,chosen,m);
             TextView kcal=text("~"+Math.round(meal.kcal)+" kcal",12,BLUE,true);
