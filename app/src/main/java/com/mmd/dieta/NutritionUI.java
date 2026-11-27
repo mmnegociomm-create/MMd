@@ -28,7 +28,7 @@ final class NutritionUI {
     void bar(LinearLayout c,String label,double actual,double goal,int color,String suffix){LinearLayout row=new LinearLayout(a);row.setGravity(Gravity.CENTER_VERTICAL);row.addView(text(label,13,INK,true),new LinearLayout.LayoutParams(0,-2,1));row.addView(text(n(actual)+" / "+n(goal)+" "+suffix,13,color,true));c.addView(row);ProgressBar p=new ProgressBar(a,null,android.R.attr.progressBarStyleHorizontal);p.setMax(1000);p.setProgress((int)Math.min(1000,Math.max(0,actual/Math.max(1,goal)*1000)));p.setProgressTintList(android.content.res.ColorStateList.valueOf(color));p.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff2a405a));c.addView(p,new LinearLayout.LayoutParams(-1,dp(9)));}
     void dashboard(LinearLayout c,int day){
         NutritionData.Goal g=NutritionData.dayGoal(a,day);NutritionData.Totals t=NutritionData.day(a,day,true);
-        line(c,"DIA "+day+" / 15 • "+PlanData.date(a,day)+" • Dados registrados");
+        line(c,"DIA "+day+" / "+PlanData.days(a)+" • "+PlanData.date(a,day)+" • Dados registrados");
         LinearLayout tile=sub(c);
         tile.addView(text(n(t.kcal)+" kcal",32,INK,true));line(tile,"Registradas • meta "+g.kcal+" kcal");
         bar(tile,"Energia",t.kcal,g.kcal,CYAN,"kcal");
@@ -39,14 +39,14 @@ final class NutritionUI {
         LocalDate date=PlanData.date(a,day);int run=NutritionData.workouts(a,date,"run"),gym=NutritionData.workouts(a,date,"gym");
         line(water,"Treinos concluídos registrados: "+run+" corrida • "+gym+" força");
         button(c,"Calculadora • calorias e macros",()->calculator(day));
-        button(c,"Metas e evolução • últimos 15 dias",()->report(day));
+        button(c,"Metas e evolução • ciclo atual",()->report(day));
         button(c,"Montar dieta personalizada",()->a.openDiet());
         line(c,"Os números representam registros, não medições diretas de gordura ou gasto energético.");
     }
     void report(int selected){
         LinearLayout c=vertical();c.setPadding(dp(16),dp(8),dp(16),dp(12));ScrollView scroll=new ScrollView(a);scroll.addView(c);
         int water=0,energy=0,protein=0,proteinKnown=0,logged=0,runs=0,gyms=0,elapsed=0;LocalDate now=LocalDate.now();
-        for(int d=1;d<=15;d++){LocalDate date=PlanData.date(a,d);if(date.isAfter(now))continue;elapsed++;NutritionData.Totals t=NutritionData.day(a,d,true);NutritionData.Goal g=NutritionData.dayGoal(a,d);if(PlanData.water(a,d)>=NutritionData.waterGoal(a,d))water++;if(PlanData.doneCount(a,d)==4){logged++;if(Math.abs(t.kcal-g.kcal)<=g.kcal*.10)energy++;if(t.known){proteinKnown++;if(t.p>=g.p)protein++;}}runs+=NutritionData.workouts(a,date,"run");gyms+=NutritionData.workouts(a,date,"gym");}
+        for(int d=1;d<=PlanData.days(a);d++){LocalDate date=PlanData.date(a,d);if(date.isAfter(now))continue;elapsed++;NutritionData.Totals t=NutritionData.day(a,d,true);NutritionData.Goal g=NutritionData.dayGoal(a,d);if(PlanData.water(a,d)>=NutritionData.waterGoal(a,d))water++;if(PlanData.doneCount(a,d)==4){logged++;if(Math.abs(t.kcal-g.kcal)<=g.kcal*.10)energy++;if(t.known){proteinKnown++;if(t.p>=g.p)protein++;}}runs+=NutritionData.workouts(a,date,"run");gyms+=NutritionData.workouts(a,date,"gym");}
         line(c,"Ciclo atual • "+elapsed+" dias transcorridos. Metas antigas sem referência salva usam a meta atual.");
         bar(c,"Hidratação atingida",water,Math.max(1,elapsed),CYAN,"dias");
         bar(c,"Calorias na faixa ±10%",energy,Math.max(1,elapsed),GREEN,"dias");
@@ -95,11 +95,12 @@ final class NutritionUI {
         NutritionData.Goal g=NutritionData.dayGoal(a,day);NutritionData.Totals t=NutritionData.day(a,day,false);
         line(c,"Meta do dia: "+g.kcal+" kcal • P "+g.p+" g • C "+g.c+" g • G "+g.f+" g");
         line(c,"Planejado: "+n(t.kcal)+" kcal"+(t.known?" • P "+n(t.p)+" • C "+n(t.c)+" • G "+n(t.f)+" g":" • macros ainda incompletos"));
-        button(c,"Gerar modelo inicial rico em proteína",()->template(day));
+        button(c,PlanData.natural(a)?"Restaurar modelo Natural 60D":"Gerar modelo inicial rico em proteína",()->template(day));
         button(c,"Copiar cardápio personalizado para dias futuros",()->copy(day));
         line(c,"Edite cada refeição em gramas; dados nutricionais são aproximados. Confirme apenas o que foi realmente consumido.");
     }
     void template(int day){
+        if(PlanData.natural(a)){new AlertDialog.Builder(a).setTitle("Restaurar modelo do dia?").setMessage("Refeições já confirmadas serão mantidas.").setNegativeButton("Cancelar",null).setPositiveButton("Restaurar",(d,w)->{for(int m=0;m<4;m++)if(!PlanData.mealDone(a,day,m))NutritionData.clear(a,day,m);a.render();}).show();return;}
         new AlertDialog.Builder(a).setTitle("Modelo ajustado às calorias").setMessage("Cria quatro refeições editáveis com frango, ovos, iogurte, arroz, feijão, frutas e gorduras. Porções são escaladas pela energia, não garantem coincidência exata com os macros. Refeições confirmadas são preservadas.").setNegativeButton("Cancelar",null).setPositiveButton("Gerar",(d,w)->{
             int[][] ids={{3,11,4,13},{0,6,7,15,16},{4,10,14,17},{2,8,15,16}};
             int[][] grams={{150,60,170,100},{180,150,100,150,5},{170,40,150,15},{180,220,150,5}};
@@ -111,11 +112,11 @@ final class NutritionUI {
     }
     void copy(int day){
         boolean any=false;for(int m=0;m<4;m++)any|=NutritionData.has(a,day,m);if(!any){Toast.makeText(a,"Monte uma refeição primeiro.",Toast.LENGTH_SHORT).show();return;}
-        new AlertDialog.Builder(a).setTitle("Copiar para dias futuros?").setMessage("Replica as refeições personalizadas somente nos dias futuros do ciclo, sem alterar refeições confirmadas ou já personalizadas.").setNegativeButton("Cancelar",null).setPositiveButton("Copiar",(d,w)->{for(int i=day+1;i<=15;i++)if(!PlanData.date(a,i).isBefore(LocalDate.now()))for(int m=0;m<4;m++)if(NutritionData.has(a,day,m)&&!NutritionData.has(a,i,m)&&!PlanData.mealDone(a,i,m))NutritionData.save(a,i,m,NutritionData.read(a,day,m));a.render();Toast.makeText(a,"Cardápio copiado.",Toast.LENGTH_SHORT).show();}).show();
+        new AlertDialog.Builder(a).setTitle("Copiar para dias futuros?").setMessage("Replica as refeições personalizadas somente nos dias futuros do ciclo, sem alterar refeições confirmadas ou já personalizadas.").setNegativeButton("Cancelar",null).setPositiveButton("Copiar",(d,w)->{for(int i=day+1;i<=PlanData.days(a);i++)if(!PlanData.date(a,i).isBefore(LocalDate.now()))for(int m=0;m<4;m++)if(NutritionData.has(a,day,m)&&!NutritionData.has(a,i,m)&&!PlanData.mealDone(a,i,m))NutritionData.save(a,i,m,NutritionData.read(a,day,m));a.render();Toast.makeText(a,"Cardápio copiado.",Toast.LENGTH_SHORT).show();}).show();
     }
     void editMeal(int day,int m){
         if(PlanData.mealDone(a,day,m)){Toast.makeText(a,"Desmarque a refeição para editar.",Toast.LENGTH_SHORT).show();return;}
-        JSONArray list=NutritionData.read(a,day,m);
+        JSONArray list=NutritionData.effectiveMeal(a,day,m);
         LinearLayout c=vertical();c.setPadding(dp(16),dp(4),dp(16),dp(12));ScrollView scroll=new ScrollView(a);scroll.addView(c);
         LinearLayout entries=vertical();c.addView(entries);
         
