@@ -42,7 +42,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent content=PendingIntent.getActivity(c,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         String title=water?"Hora de beber água 💧":"Hora da refeição — "+PlanData.NAMES[slot];
-        String body=water?"Confirme "+PlanData.waterSlotAmount(c,slot-ReminderScheduler.WATER_START)+" ml após beber. Meta até 18h: "+PlanData.goal(c)+" ml.":"Dia "+day+" • "+PlanData.FOOD[PlanData.type(day)][slot];
+        String body=water?"Confirme "+PlanData.waterSlotAmount(c,slot-ReminderScheduler.WATER_START)+" ml após beber. Meta até 18h: "+PlanData.goal(c)+" ml.":"Dia "+day+" • "+PlanData.food(c,day,slot);
         Notification.Builder b=new Notification.Builder(c,CHANNEL).setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title).setContentText(body).setStyle(new Notification.BigTextStyle().bigText(body))
             .setColor(0xff16d9ff).setAutoCancel(true).setContentIntent(content).setPriority(Notification.PRIORITY_HIGH);
