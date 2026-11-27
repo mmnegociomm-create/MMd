@@ -18,9 +18,9 @@ final class NutritionData {
         new Food("Ovo inteiro cozido",155,13,1.1,10.6),
         new Food("Iogurte natural proteico (referência)",65,10,4,0.8),
         new Food("Cottage",98,11,3.4,4.3),
-        new Food("Arroz branco cozido",130,2.7,28,0.3),
+        new Food("Arroz branco cozido",128,2.5,28.1,0.2),
         new Food("Feijão carioca cozido",76,4.8,13.6,0.5),
-        new Food("Batata inglesa cozida",87,1.9,20,0.1),
+        new Food("Batata inglesa cozida",52,1.2,11.9,0),
         new Food("Batata-doce cozida",86,1.6,20,0.1),
         new Food("Aveia seca",389,17,66,7),
         new Food("Pão integral",247,12,41,4),
@@ -31,11 +31,13 @@ final class NutritionData {
         new Food("Azeite",884,0,0,100),
         new Food("Castanhas (referência)",600,17,20,53),
         new Food("Leite desnatado",35,3.4,5,0.1),
-        new Food("Mandioca cozida",125,1,30,0.3),
+        new Food("Macaxeira cozida",125,0.6,30.1,0.3),
         new Food("Atum em água drenado",116,26,0,1),
-        new Food("Farinha de Cruzeiro do Sul (seca)",365,1.6,88,0.3),
-        new Food("Leite em pó integral (referência)",496,26,38,27),
-        new Food("Carne moída de segunda cozida (estimativa)",250,26,0,16)
+        new Food("Farinha de Cruzeiro do Sul (seca)",365,1.2,89.2,0.3),
+        new Food("Leite em pó integral (referência)",497,25.4,39.2,26.9),
+        new Food("Carne moída de segunda cozida (acém como referência)",212,26.7,0,10.9),
+        new Food("Bisteca bovina grelhada sem osso (estimativa)",250,27,0,15),
+        new Food("Pão de leite (estimativa)",300,9,51,7)
     };
     static final class Totals {
         double kcal,p,c,f; boolean known=true;
@@ -53,8 +55,8 @@ final class NutritionData {
     static Totals meal(Context c,int d,int m){if(has(c,d,m))return totals(read(c,d,m));if(PlanData.natural(c))return totals(naturalMeal(c,d,m));Totals t=new Totals();t.kcal=PlanData.kcal(c,d,m);t.known=false;return t;}
     static Totals day(Context c,int d,boolean onlyDone){Totals t=new Totals();for(int m=0;m<4;m++)if(!onlyDone||PlanData.mealDone(c,d,m))t.add(meal(c,d,m));return t;}
     static JSONArray naturalMeal(Context c,int day,int meal){
-        int[][][] ids={{{3,22,12,13},{0,6,7,15},{0,8,14,22},{23,19,21,15,17}},{{3,22,19,13},{23,6,7,15},{0,8,14,22},{0,12,15,17}},{{3,22,12,14},{0,6,7,15,21},{3,0,19,13},{23,8,15,17}}};
-        int[][][] grams={{{150,30,60,100},{200,160,100,150},{120,230,150,20},{180,130,15,150,15}},{{150,30,160,100},{170,170,100,150},{180,200,150,20},{150,55,150,25}},{{150,30,55,150},{210,170,100,150,15},{100,100,130,100},{180,230,150,15}}};
+        int[][][] ids={{{25,22,23},{24,6,21},{23,19,22},{23,8,6}},{{25,22,23},{23,6,21},{24,8,22},{24,19,6}},{{25,22,24},{23,19,21},{23,6,22},{24,8,6}}};
+        int[][][] grams={{{100,40,100},{200,200,20},{120,180,20},{160,300,100}},{{80,40,120},{220,200,20},{130,300,20},{120,200,100}},{{100,40,100},{220,200,15},{120,150,20},{160,300,100}}};
         int t=(day-1)%3;double base=0;for(int m=0;m<4;m++)for(int j=0;j<ids[t][m].length;j++)base+=FOODS[ids[t][m][j]].kcal*grams[t][m][j]/100.0;
         double scale=dayGoal(c,day).kcal/base;JSONArray list=new JSONArray();
         for(int j=0;j<ids[t][meal].length;j++)list.put(entry(FOODS[ids[t][meal][j]],Math.max(1,Math.round(grams[t][meal][j]*scale))));
