@@ -37,7 +37,7 @@ final class NutritionUI {
         else {line(tile,"Macros incompletos: "+n(t.p)+" g proteína • "+n(t.c)+" g carboidratos • "+n(t.f)+" g gordura em refeições personalizadas. Cardápio antigo não tem macros por refeição.");}
         LinearLayout water=sub(c);bar(water,"Água",PlanData.water(a,day),NutritionData.waterGoal(a,day),CYAN,"ml");bar(water,"Refeições",PlanData.doneCount(a,day),4,GREEN,"");
         LocalDate date=PlanData.date(a,day);int run=NutritionData.workouts(a,date,"run"),gym=NutritionData.workouts(a,date,"gym");
-        line(water,"Treinos concluídos registrados: "+run+" corrida • "+gym+" força");
+        line(water,"Treinos concluídos registrados: "+run+" corrida • "+gym+" força");line(water,"Peso atual: "+PlanData.fmt(PlanData.weight(a))+" kg");float waist=prefs.getFloat("fit_m0",0);if(waist>0)line(water,"Última cintura: "+PlanData.fmt(waist)+" cm");
         button(c,"Calculadora • calorias e macros",()->calculator(day));
         button(c,"Metas e evolução • ciclo atual",()->report(day));
         button(c,"Montar dieta personalizada",()->a.openDiet());
