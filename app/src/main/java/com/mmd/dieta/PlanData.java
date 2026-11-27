@@ -44,30 +44,35 @@ public final class PlanData {
     };
     private static final int[][] NEW_KCAL={{534,663,345,495},{567,661,314,513},{481,675,373,519}};
     private static final int[] NEW_PROTEIN={167,163,156};
+    public static boolean natural(Context c){return prefs(c).getBoolean("plan_natural60",false);}
+    public static int days(Context c){return natural(c)?60:DAYS;}
+    public static String mealTime(Context c,int meal){return natural(c)?new String[]{"07:15","11:30","15:00","19:00"}[meal]:TIMES[meal];}
+    public static void beginNatural(Context c){prefs(c).edit().putBoolean("plan_natural60",true).putString("start_date_natural60",LocalDate.now().toString()).putInt("nut_kcal",2400).putInt("nut_p",180).putInt("nut_c",240).putInt("nut_f",80).apply();}
     public static boolean newPlan(Context c){return prefs(c).getBoolean("plan_v2",false);}
     public static void beginNew(Context c){prefs(c).edit().putBoolean("plan_v2",true).putString("start_date_v2",LocalDate.now().toString()).apply();}
-    public static String food(Context c,int day,int meal){return (newPlan(c)?NEW_FOOD:FOOD)[type(day)][meal];}
-    public static int kcal(Context c,int day,int meal){return (newPlan(c)?NEW_KCAL:KCAL)[type(day)][meal];}
+    public static String food(Context c,int day,int meal){if(natural(c))return NutritionData.description(NutritionData.effectiveMeal(c,day,meal));return (newPlan(c)?NEW_FOOD:FOOD)[type(day)][meal];}
+    public static int kcal(Context c,int day,int meal){if(natural(c))return (int)Math.round(NutritionData.meal(c,day,meal).kcal);return (newPlan(c)?NEW_KCAL:KCAL)[type(day)][meal];}
     public static int protein(int day){return NEW_PROTEIN[type(day)];}
     public static int dayTotal(Context c,int day){int n=0;for(int m=0;m<4;m++)n+=kcal(c,day,m);return n;}
     public static int type(int day) { return (day - 1) % 3; }
     public static int dayTotal(int day) { int n=0; for(int k:KCAL[type(day)]) n+=k; return n; }
     public static SharedPreferences prefs(Context c) { return c.getSharedPreferences("dieta15_state", Context.MODE_PRIVATE); }
     public static LocalDate start(Context c) {
-        SharedPreferences p=prefs(c); String startKey=newPlan(c)?"start_date_v2":"start_date"; String v=p.getString(startKey, "");
+        SharedPreferences p=prefs(c); String startKey=natural(c)?"start_date_natural60":newPlan(c)?"start_date_v2":"start_date"; String v=p.getString(startKey, "");
         if(v.isEmpty()) { v=LocalDate.now().toString(); p.edit().putString(startKey,v).apply(); }
         return LocalDate.parse(v);
     }
     public static int today(Context c) {
         long d=ChronoUnit.DAYS.between(start(c),LocalDate.now())+1;
-        return (int)Math.max(1,Math.min(15,d));
+        return (int)Math.max(1,Math.min(days(c),d));
     }
     public static LocalDate date(Context c,int day) { return start(c).plusDays(day-1); }
-    public static String key(Context c,int day,String suffix) { return (newPlan(c)?"v2_":"")+date(c,day)+"_"+suffix; }
+    public static String key(Context c,int day,String suffix) { return (natural(c)?"n60_":newPlan(c)?"v2_":"")+date(c,day)+"_"+suffix; }
     public static boolean mealDone(Context c,int day,int meal) {
         return prefs(c).getBoolean(key(c,day,"meal"+meal),false);
     }
     public static void setMeal(Context c,int day,int meal,boolean done) {
+        if(done&&natural(c)&&!NutritionData.has(c,day,meal))NutritionData.save(c,day,meal,NutritionData.naturalMeal(c,day,meal));
         prefs(c).edit().putBoolean(key(c,day,"meal"+meal),done).apply();
     }
     public static int waterSlotAmount(Context c,int slot) {
