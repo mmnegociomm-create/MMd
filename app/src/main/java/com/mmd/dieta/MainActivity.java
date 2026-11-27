@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
     private FitnessUI fitness;
     private NutritionUI nutrition;
     private NaturalUI natural;
+    private DietWorkbook workbook;
     private final DateTimeFormatter fmt=DateTimeFormatter.ofPattern("dd/MM/yyyy",new Locale("pt","BR"));
     private int dp(float n) {return (int)(n*getResources().getDisplayMetrics().density+0.5f);}
     private GradientDrawable drawable(int color,int stroke,int radius) {
@@ -78,14 +79,14 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
-        PlanData.start(this);chosen=PlanData.today(this);fitness=new FitnessUI(this);nutrition=new NutritionUI(this);natural=new NaturalUI(this);
+        PlanData.start(this);chosen=PlanData.today(this);fitness=new FitnessUI(this);nutrition=new NutritionUI(this);natural=new NaturalUI(this);workbook=new DietWorkbook(this);
         ReminderScheduler.setup(this);
         if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},101);
         render();
     }
     @Override protected void onResume(){super.onResume();if(root!=null)render();}
-    @Override protected void onActivityResult(int request,int result,android.content.Intent data){super.onActivityResult(request,result,data);if(natural!=null)natural.photoResult(request,result,data);}
+    @Override protected void onActivityResult(int request,int result,android.content.Intent data){super.onActivityResult(request,result,data);if(natural!=null)natural.photoResult(request,result,data);if(workbook!=null)workbook.result(request,result,data);}
     @Override protected void onDestroy(){if(fitness!=null)fitness.destroy();if(natural!=null)natural.destroy();super.onDestroy();}
     @Override public void onBackPressed(){if(fitness!=null&&fitness.busy()){new android.app.AlertDialog.Builder(this).setTitle("Treino em andamento").setMessage("Encerre pela tela de treino ou continue.").setPositiveButton("Continuar",null).show();}else if(tab!=0){tab=0;render();}else super.onBackPressed();}
     void render() {
@@ -100,7 +101,7 @@ public class MainActivity extends Activity {
         frame.addView(nav,new LinearLayout.LayoutParams(-1,-2));setContentView(frame);
         switch(tab){
             case 0: dayPicker();if(!PlanData.natural(this))natural.home(card("PROJETO NATURAL 60D"),chosen);nutrition.dashboard(card("DASHBOARD • MINHAS METAS"),chosen);if(PlanData.natural(this))natural.home(card("PROJETO NATURAL 60D"),chosen);break;
-            case 1: dayPicker();nutrition.planner(card("PLANEJAMENTO ALIMENTAR"),chosen);menu();break;
+            case 1: dayPicker();if(PlanData.natural(this))workbook.buttons(card("CARDÁPIO EXCEL"),chosen);else{LinearLayout setup=card("CARDÁPIO PERSONALIZADO");setup.addView(text("Ative o projeto Natural 60D para usar o novo cardápio e importar planilhas.",13,MUTED,false));Button activate=button("Ativar Natural 60D",true);setup.addView(activate,lp(-1,46,8));activate.setOnClickListener(v->activateNatural());}nutrition.planner(card("PLANEJAMENTO ALIMENTAR"),chosen);menu();break;
             case 2: dayPicker();hydration();break;
             case 3: if(PlanData.natural(this)&&!fitness.busy()){dayPicker();natural.cardio(card("CARDIO MATINAL"),chosen);}fitness.runningScreen(card("CORRIDA GUIADA"));break;
             case 4: fitness.gymScreen(card("MUSCULAÇÃO GUIADA"));break;
